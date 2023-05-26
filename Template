@@ -1,3 +1,5 @@
+#HTML
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,3 +13,14 @@
     <h1>Welcome to <span>www.sys1.com</span></h1>
 </body>
 </html>
+
+
+#CSS
+
+span{
+    color: blue;
+}
+
+body{
+    text-align: center;
+}
