@@ -1,0 +1,116 @@
+---
+- name: Configure Apache2
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Apache2
+      apt:
+        name: apache2
+        state: latest
+    
+    - name: Copy Apache2 configuration file
+      template:
+        src: templates/apache2.conf.j2
+        dest: /etc/apache2/apache2.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: 
+        - Restart Apache2
+    
+    - name: Copy virtual host configuration
+      template:
+        src: templates/virtualhost.conf.j2
+        dest: /etc/apache2/sites-available/mywebsite.conf
+        owner: root
+        group: root
+        mode: '0644'
+    
+    - name: Enable virtual host
+      file:
+        src: /etc/apache2/sites-available/mywebsite.conf
+        dest: /etc/apache2/sites-enabled/mywebsite.conf
+        state: link
+    
+    - name: Disable default virtual host
+      file:
+        path: /etc/apache2/sites-enabled/000-default.conf
+        state: absent
+    
+    - name: Ensure Apache2 service is running
+      service:
+        name: apache2
+        state: started
+        enabled: true
+      tags: 
+        - Restart Apache2
+
+  handlers:
+    - name: Restart Apache2
+      service:
+        name: apache2
+        state: restarted
+
+
+- name: configure apache2
+  hosts: all
+  user: root
+  gather_facts: false
+  tasks:
+
+    #1
+    - name: Install Apache2
+      apt:
+        name: apache2
+        state: latest
+  
+    #2
+    - name: Copy the domains file to the server
+      copy:
+        src: "{{ playbook_dir }}/domains"
+        dest: /tmp/domains
+        
+  #3
+    - name: Read the domains 
+      command: cat /tmp/domains
+      register: names_output
+    
+    #4
+    - name:  configuration domain
+      template:
+        src: "{{ playbook_dir }}/template/template.conf"
+        dest: "/etc/apache2/sites-available/{{ url }}.conf"
+      loop: "{{ names_output.stdout_lines }}"
+      loop_control:
+        loop_var: url
+
+#5
+    - name:  directory for each domain name
+      file:
+        path: "/var/www/{{ url }}"
+        state: directory
+      loop: "{{ names_output.stdout_lines }}"
+      loop_control:
+        loop_var: url
+    
+    #6
+    - name:  html page for each domain name
+      template:
+        src: "{{ playbook_dir }}/template/template.html"
+        dest: "/var/www/{{ url }}/index.html"
+      loop: "{{ names_output.stdout_lines }}"
+      loop_control:
+        loop_var: url
+        
+        #7
+    - name: Active every configuration
+      command: a2ensite {{ url }}.conf
+      loop: "{{ names_output.stdout_lines }}"
+      loop_control:
+        loop_var: url
+    
+    #8
+    - name: Restart apache2
+      service:
+        name: apache2
+        state: restarted
